@@ -1,0 +1,109 @@
+<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>웹 버전 검증</title>
+  <link rel="stylesheet" href="스타일.css">
+</head>
+<body>
+  <main class="검증">
+    <h1>웹 버전 검증</h1>
+    <p class="설명">desktop_version/검증데이터만들기.py 가 만든 검증데이터.json(파이썬 결과)과
+      이 브라우저의 자바스크립트 결과를 대조합니다. <a href="index.html">앱으로 돌아가기</a></p>
+    <p id="상태" class="상태">검사 중입니다.</p>
+    <table>
+      <thead><tr><th>항목</th><th>기준</th><th>실측</th><th>판정</th></tr></thead>
+      <tbody id="요약"></tbody>
+    </table>
+    <h2>파이썬과 예측이 다른 표본</h2>
+    <table>
+      <thead><tr><th>번호</th><th>종류</th><th>정답</th><th>파이썬</th><th>자바스크립트</th></tr></thead>
+      <tbody id="불일치"></tbody>
+    </table>
+  </main>
+  <script type="module">
+    import { 모델_불러오기, 예측 } from "./모델.js";
+    import { 전처리, 정규화 } from "./전처리.js";
+
+    const 상태 = document.getElementById("상태");
+    const 최댓값위치 = (배열) => 배열.reduce((최선, v, i) => (v > 배열[최선] ? i : 최선), 0);
+
+    function 그림_밝기(주소) {
+      return new Promise((완료, 실패) => {
+        const 그림 = new Image();
+        그림.onload = () => {
+          const 캔버스 = document.createElement("canvas");
+          캔버스.width = 그림.width;
+          캔버스.height = 그림.height;
+          const 붓 = 캔버스.getContext("2d");
+          붓.drawImage(그림, 0, 0);
+          const 화소 = 붓.getImageData(0, 0, 그림.width, 그림.height).data;
+          const 밝기 = new Uint8ClampedArray(그림.width * 그림.height);
+          for (let i = 0; i < 밝기.length; i++) 밝기[i] = 화소[i * 4];
+          완료({ 밝기, 너비: 그림.width, 높이: 그림.height });
+        };
+        그림.onerror = 실패;
+        그림.src = 주소;
+      });
+    }
+
+    function 줄(표, 칸들) {
+      const tr = document.createElement("tr");
+      for (const 칸 of 칸들) {
+        const td = document.createElement("td");
+        if (칸 instanceof Node) td.append(칸); else td.textContent = 칸;
+        tr.append(td);
+      }
+      document.getElementById(표).append(tr);
+    }
+
+    function 판정(통과) {
+      const 표시 = document.createElement("span");
+      표시.className = 통과 ? "통과" : "실패";
+      표시.textContent = 통과 ? "통과" : "실패";
+      return 표시;
+    }
+
+    try {
+      const 응답 = await fetch("검증데이터.json");
+      if (!응답.ok) throw new Error("검증데이터.json 이 없습니다. desktop_version 에서 py 검증데이터만들기.py 를 먼저 실행하세요.");
+      const { 표본 } = await 응답.json();
+      const 모델 = await 모델_불러오기();
+
+      let 순전파최대차 = 0, 정답수 = 0, 전처리실패 = 0;
+      for (const s of 표본) {
+        // 검사 1: 같은 28x28 입력에 대한 순전파 결과 비교
+        const p1 = 예측(모델, 정규화(Float32Array.from(s.전처리), 모델.정규화));
+        for (let k = 0; k < 10; k++) 순전파최대차 = Math.max(순전파최대차, Math.abs(p1[k] - s.확률[k]));
+
+        // 검사 2: 280x280 그림부터 자바스크립트 전처리 + 순전파 전체
+        const { 밝기, 너비, 높이 } = await 그림_밝기(s.그림);
+        const 배열 = 전처리(밝기, 너비, 높이);
+        if (!배열) { 전처리실패++; continue; }
+        const p2 = 예측(모델, 정규화(배열, 모델.정규화));
+        const 답 = 최댓값위치(p2);
+        if (답 === s.라벨) 정답수++;
+        const 파이썬답 = 최댓값위치(s.확률);
+        if (답 !== 파이썬답) 줄("불일치", [s.번호, s.종류, s.라벨, 파이썬답, 답]);
+      }
+
+      const 정확도 = 정답수 / 표본.length;
+      const 순전파통과 = 순전파최대차 <= 1e-4;
+      const 정확도통과 = 정확도 >= 0.97;
+      줄("요약", ["순전파 일치", "확률 최대 절대차 1e-4 이하", 순전파최대차.toExponential(2), 판정(순전파통과)]);
+      줄("요약", ["전체 정확도", `${표본.length}장 중 97% 이상`, `${(정확도 * 100).toFixed(1)}% (${정답수}장)`, 판정(정확도통과)]);
+      줄("요약", ["전처리 실패", "0장", `${전처리실패}장`, 판정(전처리실패 === 0)]);
+      if (!document.getElementById("불일치").children.length) 줄("불일치", ["없음", "", "", "", ""]);
+
+      const 모두통과 = 순전파통과 && 정확도통과 && 전처리실패 === 0;
+      상태.textContent = 모두통과 ? "모든 검사를 통과했습니다." : "실패한 검사가 있습니다.";
+      상태.className = 모두통과 ? "상태 통과" : "상태 실패";
+    } catch (오류) {
+      상태.textContent = "실패한 검사가 있습니다. " + 오류.message;
+      상태.className = "상태 실패";
+      console.error(오류);
+    }
+  </script>
+</body>
+</html>
