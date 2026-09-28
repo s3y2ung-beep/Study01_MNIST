@@ -1,30 +1,34 @@
 # CLAUDE.md
 
-이 파일은 이 저장소에서 작업하는 Claude Code에게 주는 안내다.
+MNIST 손글씨 숫자 인식 프로젝트. 같은 모델을 두 버전으로 제공한다.
 
-## 프로젝트 개요
+## 두 버전의 관계
 
-MNIST 손글씨 숫자 인식 데스크톱 앱. PyTorch로 학습한 CNN(`model.py`)을 tkinter 그림판(`app.py`)에서 불러 쓴다.
+| 폴더 | 내용 | 언어 |
+|---|---|---|
+| `desktop_version/` | 학습, tkinter 데스크톱 앱, 웹용 가중치 내보내기 | 파이썬 (PyTorch) |
+| `web_version/` | 브라우저 앱, GitHub Pages 배포 대상 | 순수 자바스크립트 |
+
+각 폴더의 CLAUDE.md에 세부 지침이 있다.
+
+## 가중치 흐름
+
+```
+desktop_version/train.py        → desktop_version/mnist_cnn.pt
+desktop_version/가중치내보내기.py → web_version/가중치.bin + 가중치정보.json
+desktop_version/검증데이터만들기.py → web_version/검증데이터.json (깃 제외)
+```
+
+모델을 다시 학습하면 가중치를 다시 내보내고 `web_version/검증.html`로 확인한다.
+
+## 공통 규칙
+
+- 코드, 주석, 식별자를 한글로 쓴다.
+- 전처리 3단계(여백 자르기 → 비율 유지 20x20 축소 → 무게중심을 28x28 중앙으로 이동)는 두 버전이 같아야 한다.
+- 정규화 상수(0.1307, 0.3081)의 출처는 `desktop_version/preprocess.py` 하나다.
 
 ## 실행 명령
 
-- 패키지 설치: `py -m pip install torch torchvision pillow numpy` (맥: `python3 -m pip ...`)
-- 학습: `py train.py` → `mnist_cnn.pt` 생성 (CPU에서 에폭당 수십 초~수 분)
-- 앱: `py app.py`, 윈도우에서는 `손글씨인식.pyw` 더블클릭으로 명령 창 없이 실행
-
-## 환경 제약
-
-- `train.py`는 상대 경로 `data/`에 MNIST(약 11MB)를 내려받는다. 반드시 이 폴더 안에서 실행한다.
-- 학교망 등에서 `CERTIFICATE_VERIFY_FAILED`가 나면 `train.py`가 SSL 검증을 끄고 한 번 더 시도한다.
-- 학습이 도는 동안 같은 스크립트를 다시 실행하지 않는다. 프로세스 두 개가 CPU를 나눠 쓰면 둘 다 멈춘 듯 느려진다.
-
-## 파일 간 결합
-
-- `app.py`와 `train.py` 모두 `model.py`의 `숫자인식망`을 쓴다. 층 구조를 바꾸면 반드시 다시 학습해야 한다.
-- 정규화 상수(0.1307, 0.3081)는 `preprocess.py`에만 적고 다른 파일은 그것을 가져다 쓴다.
-- 전처리 3단계(여백 자르기 → 비율 유지 20x20 축소 → 무게중심을 28x28 중앙으로 이동)는 MNIST 원본의 제작 방식과 같아야 인식률이 유지된다. 전처리를 바꾸면 손그림 인식률을 다시 확인한다.
-- 앱의 그림판은 흰 바탕에 검은 글씨로 보이지만, 모델에 넘기는 그림은 MNIST처럼 검은 바탕에 흰 글씨다.
-
-## 작성 규칙
-
-- 코드, 주석, 식별자(변수, 함수, 클래스 이름)를 한글로 쓴다. 외부 라이브러리 API 이름은 그대로 둔다.
+- 데스크톱: `cd desktop_version` 후 `py app.py` (맥: `python3 app.py`)
+- 웹(로컬): `cd web_version` 후 `py -m http.server 8000`, 브라우저에서 `http://localhost:8000/`
+- 배포: main에 푸시하면 `.github/workflows/pages.yml`이 `web_version/`을 GitHub Pages로 올린다.
