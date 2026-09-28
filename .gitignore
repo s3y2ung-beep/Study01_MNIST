@@ -1,0 +1,5 @@
+data/
+__pycache__/
+*.pyc
+학습기록.txt
+검증데이터.json
