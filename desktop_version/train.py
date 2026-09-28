@@ -18,9 +18,24 @@ from preprocess import 정규화_평균, 정규화_표준편차
 데이터_폴더 = "data"
 가중치_파일 = "mnist_cnn.pt"
 배치_크기 = 64
-에폭_수 = 3
+에폭_수 = 6
 학습률 = 0.001
 학습률_감소 = 0.7
+
+
+class 획굵기_바꾸기:
+    """손그림은 사람과 펜에 따라 획 굵기가 제각각이므로, 학습 그림의 획을 무작위로 굵게 또는 가늘게 만든다.
+
+    굵게: 3x3 최대 필터(팽창), 가늘게: 3x3 최소 필터(침식). 각각 1/3 확률, 나머지 1/3은 그대로 둔다.
+    """
+
+    def __call__(self, 그림):  # 그림: 1x28x28 텐서 (0~1)
+        선택 = torch.rand(1).item()
+        if 선택 < 1 / 3:
+            return F.max_pool2d(그림.unsqueeze(0), 3, stride=1, padding=1).squeeze(0)
+        if 선택 < 2 / 3:
+            return -F.max_pool2d(-그림.unsqueeze(0), 3, stride=1, padding=1).squeeze(0)
+        return 그림
 
 
 def 데이터_불러오기(학습용: bool, 변환):
@@ -51,10 +66,11 @@ def 평가(모델, 불러오개):
 def main():
     torch.manual_seed(0)
 
-    # 학습 때만 회전, 이동, 확대/축소 증강을 넣어 손그림의 다양한 모양에 강하게 만든다
+    # 학습 때만 회전, 이동, 확대/축소, 기울임, 획 굵기 증강을 넣어 손그림의 다양한 모양에 강하게 만든다
     학습_변환 = transforms.Compose([
-        transforms.RandomAffine(degrees=10, translate=(0.1, 0.1), scale=(0.9, 1.1)),
+        transforms.RandomAffine(degrees=15, translate=(0.1, 0.1), scale=(0.85, 1.1), shear=15),
         transforms.ToTensor(),
+        획굵기_바꾸기(),
         transforms.Normalize((정규화_평균,), (정규화_표준편차,)),
     ])
     시험_변환 = transforms.Compose([

@@ -10,7 +10,7 @@ PyTorch로 학습한 CNN(`model.py`의 `숫자인식망`)을 tkinter 그림판(`
 ## 실행 명령 (모두 이 폴더 안에서)
 
 - 패키지 설치: `py -m pip install torch torchvision pillow numpy` (맥: `python3 -m pip ...`)
-- 학습: `py train.py` → `mnist_cnn.pt` 생성. CPU에서 에폭당 수십 초~수 분, 3에폭.
+- 학습: `py train.py` → `mnist_cnn.pt` 생성. CPU에서 에폭당 수십 초~수 분, 6에폭. 획 굵기 증강(`획굵기_바꾸기`)은 손그림 인식률 때문에 넣은 것이므로 빼지 않는다.
 - 앱: `py app.py`. 윈도우에서는 `손글씨인식.pyw` 더블클릭으로 명령 창 없이 실행.
 - 가중치 내보내기: `py 가중치내보내기.py` → `../web_version/가중치.bin`, `../web_version/가중치정보.json`
 - 검증 데이터 만들기: `py 검증데이터만들기.py` → `../web_version/검증데이터.json` (깃에 넣지 않음)
