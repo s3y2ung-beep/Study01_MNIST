@@ -40,6 +40,8 @@ main {
 
 h1 { font-size: 1.5rem; margin: 0; }
 
+.작성자 { margin: -8px 0 0; font-weight: 600; }
+
 .상태 { margin: 0; color: var(--흐린글자); }
 .상태.오류 { color: var(--오류); }
 
